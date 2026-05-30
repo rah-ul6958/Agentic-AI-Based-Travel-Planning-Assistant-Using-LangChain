@@ -1,0 +1,504 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, [data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #0c0f1a 0%, #14182a 100%) !important;
+    color: #e8e4d9 !important;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #111520 0%, #0f1218 100%) !important;
+    border-right: 1px solid rgba(255,255,255,0.08) !important;
+    min-width: 19rem !important;
+    transition: transform 180ms ease, width 180ms ease !important;
+}
+
+h1, h2, h3, .display-font { font-family: 'Playfair Display', serif !important; }
+p, label, span, div, button, input { font-family: 'DM Sans', sans-serif !important; }
+
+.hero-header {
+    text-align: center;
+    padding: 3rem 1rem 1.5rem;
+    background: rgba(245,200,66,0.03);
+    border-radius: 16px;
+    margin: 1.5rem 1rem;
+    border: 1px solid rgba(245,200,66,0.1);
+}
+
+.hero-title {
+    font-size: clamp(2.15rem, 6vw, 3.45rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #f5c842 0%, #f59642 48%, #e85d42 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    line-height: 1.12;
+    letter-spacing: 0;
+}
+
+.hero-sub {
+    font-size: 1rem;
+    color: #aaa58f;
+    margin-top: 0.55rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+}
+
+[data-testid="stSidebar"] label {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.7px !important;
+    text-transform: uppercase !important;
+    color: #f5c842 !important;
+}
+
+[data-testid="stTextInput"] input,
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+[data-testid="stNumberInput"] input {
+    background: rgba(24, 28, 46, 0.8) !important;
+    border: 1.5px solid rgba(255,255,255,0.12) !important;
+    color: #e8e4d9 !important;
+    border-radius: 10px !important;
+    min-height: 2.65rem !important;
+    font-size: 0.95rem !important;
+    transition: all 0.2s ease !important;
+}
+
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stNumberInput"] input::placeholder {
+    color: #6f7484 !important;
+}
+
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus {
+    border-color: #f5c842 !important;
+    box-shadow: 0 0 0 3px rgba(245,200,66,0.2) !important;
+    background: rgba(24, 28, 46, 1) !important;
+}
+
+[data-testid="stSlider"] [role="slider"] { 
+    background: #f5c842 !important;
+    box-shadow: 0 2px 8px rgba(245,200,66,0.3) !important;
+}
+
+[data-testid="stButton"] > button,
+[data-testid="stDownloadButton"] > button {
+    width: 100%;
+    background: linear-gradient(135deg, #f5c842, #f59642) !important;
+    color: #0c0f1a !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    padding: 0.75rem 1.2rem !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+    letter-spacing: 0.3px !important;
+}
+
+[data-testid="stButton"] > button:hover,
+[data-testid="stDownloadButton"] > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(245,200,66,0.35) !important;
+}
+
+[data-testid="stButton"] > button:active,
+[data-testid="stDownloadButton"] > button:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(245,200,66,0.25) !important;
+}
+
+.card,
+.travel-card,
+.trip-summary-card {
+    background: rgba(21, 25, 41, 0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 1.5rem 1.6rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease !important;
+}
+
+.card:hover,
+.travel-card:hover {
+    border-color: rgba(245,200,66,0.2);
+    box-shadow: 0 12px 48px rgba(245,200,66,0.15);
+}
+
+.travel-card {
+    min-height: 9.5rem;
+    border-left: 4px solid #f5c842;
+}
+
+.trip-summary-card {
+    text-align: center;
+    border-color: rgba(245,200,66,0.3);
+    background: linear-gradient(135deg, rgba(245,200,66,0.12), rgba(21,25,41,0.9));
+}
+
+.trip-summary-card h2 {
+    margin: 0.25rem 0 0;
+    font-size: 2rem;
+    color: #f4efe2;
+    letter-spacing: -0.5px;
+}
+
+.summary-kicker,
+.card-title,
+.section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #f5c842;
+}
+
+.card-body {
+    font-size: 0.98rem;
+    color: #d8d4c9;
+    line-height: 1.7;
+    margin-top: 0.5rem;
+}
+
+.section-label {
+    color: #aaa58f;
+    margin: 1.8rem 0 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-weight: 600;
+}
+
+.section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+}
+
+.weather-strip,
+.weather-timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 0.9rem;
+}
+
+.weather-pill,
+.weather-card {
+    background: rgba(29,34,53,0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    color: #d4d0c4;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    transition: all 0.25s ease !important;
+    cursor: default;
+}
+
+.weather-pill:hover,
+.weather-card:hover {
+    border-color: rgba(245,200,66,0.2);
+    background: rgba(29,34,53,1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245,200,66,0.1);
+}
+
+.weather-pill .day-label {
+    display: block;
+    color: #f5c842;
+    font-weight: 700;
+    font-size: 0.8rem;
+    margin-bottom: 0.35rem;
+}
+
+.timeline-day {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 0.9rem;
+    align-items: stretch;
+}
+
+.day-indicator {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #f5c842, #f59642);
+    color: #0c0f1a;
+    font-weight: 800;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(245,200,66,0.3);
+}
+
+.day-card {
+    border-left: 4px solid #f59642;
+    background: rgba(21,25,41,0.8);
+    border-radius: 10px;
+    padding: 1.2rem 1.3rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.2s ease !important;
+}
+
+.day-card:hover {
+    border-color: rgba(245,200,66,0.2);
+    background: rgba(21,25,41,1);
+}
+
+.day-num {
+    color: #f5c842;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+}
+
+.day-content {
+    color: #d8d4c9;
+    line-height: 1.75;
+    font-size: 0.96rem;
+}
+
+.budget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 0.9rem;
+}
+
+.budget-item {
+    background: rgba(29,34,53,0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 1rem 0.95rem;
+    text-align: center;
+    min-height: 5.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: all 0.25s ease !important;
+}
+
+.budget-item:hover {
+    border-color: rgba(245,200,66,0.2);
+    background: rgba(29,34,53,1);
+    transform: translateY(-2px);
+}
+
+.total-trip-card .budget-item {
+    border-color: rgba(245,200,66,0.4);
+    background: linear-gradient(135deg, rgba(245,200,66,0.12), rgba(29,34,53,0.95));
+    border-width: 1.5px;
+}
+
+.budget-label {
+    font-size: 0.71rem;
+    color: #aaa58f;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.budget-val {
+    font-family: 'Playfair Display', serif !important;
+    color: #f4efe2;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.budget-total .budget-val { 
+    color: #f5c842; 
+    font-size: 1.6rem;
+}
+
+.tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: #c8c4b9;
+    line-height: 1.65;
+    font-size: 0.95rem;
+}
+
+.tip-item:last-child {
+    border-bottom: none;
+}
+
+.tip-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    background: #f5c842;
+    border-radius: 50%;
+    margin-top: 0.6rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(245,200,66,0.4);
+}
+
+.skeleton-card {
+    height: 5.5rem;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #151929 0%, #20263a 45%, #151929 90%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 5rem 2rem 4rem;
+    color: #7e8497;
+}
+
+.empty-icon {
+    font-size: 4.5rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.empty-text {
+    font-family: 'Playfair Display', serif !important;
+    font-size: 1.8rem;
+    color: #d8d4c9;
+    font-weight: 600;
+    margin-bottom: 0.7rem;
+}
+
+.empty-sub {
+    font-size: 0.95rem;
+    color: #8d928f;
+    letter-spacing: 0.3px;
+    line-height: 1.6;
+}
+
+#MainMenu,
+footer,
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+header {
+    visibility: visible !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+button[data-testid="stExpandSidebarButton"],
+header button[aria-label="Open sidebar"],
+header button[aria-label="Close sidebar"] {
+    position: fixed !important;
+    top: 0.85rem !important;
+    left: 3.85rem !important;
+    width: 2.6rem !important;
+    height: 2.6rem !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 10px !important;
+    background: rgba(17, 21, 32, 0.9) !important;
+    border: 1.5px solid rgba(245, 200, 66, 0.3) !important;
+    color: #f5c842 !important;
+    font-size: 0 !important;
+    z-index: 9999 !important;
+    transition: all 0.25s ease !important;
+}
+
+button[data-testid="stExpandSidebarButton"]:hover,
+header button[aria-label="Open sidebar"]:hover,
+header button[aria-label="Close sidebar"]:hover {
+    background: rgba(17, 21, 32, 1) !important;
+    border-color: #f5c842 !important;
+    box-shadow: 0 4px 12px rgba(245,200,66,0.2) !important;
+}
+
+button[data-testid="stExpandSidebarButton"]::before {
+    content: "☰";
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #f5c842;
+}
+
+button[data-testid="stExpandSidebarButton"] span,
+button[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {
+    display: none !important;
+}
+
+button[data-testid="stExpandSidebarButton"] svg,
+header button[aria-label="Open sidebar"] svg,
+header button[aria-label="Close sidebar"] svg {
+    stroke: #f5c842 !important;
+    width: 1.35rem !important;
+    height: 1.35rem !important;
+}
+
+::-webkit-scrollbar { 
+    width: 8px; 
+}
+
+::-webkit-scrollbar-track { 
+    background: transparent; 
+}
+
+::-webkit-scrollbar-thumb { 
+    background: rgba(245,200,66,0.2); 
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(245,200,66,0.35);
+}
+
+/* Expander styles */
+[data-testid="stExpander"] {
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+[data-testid="stExpander"] button {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 1rem 1.2rem !important;
+    font-weight: 600 !important;
+    color: #d8d4c9 !important;
+    transition: all 0.25s ease !important;
+}
+
+[data-testid="stExpander"] button:hover {
+    background-color: rgba(245,200,66,0.08) !important;
+    color: #f5c842 !important;
+}
+
+/* Error/Success message styles */
+[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    padding: 1rem 1.2rem !important;
+}
+
+@media (max-width: 768px) {
+    .hero-header { 
+        padding-top: 3.5rem;
+        margin: 1rem 0.5rem;
+    }
+    .travel-card { min-height: auto; }
+    .timeline-day { grid-template-columns: 1.8rem 1fr; }
+    .weather-timeline { grid-template-columns: 1fr; }
+    .budget-grid { grid-template-columns: repeat(2, 1fr); }
+    .day-indicator { width: 2rem; height: 2rem; }
+}
