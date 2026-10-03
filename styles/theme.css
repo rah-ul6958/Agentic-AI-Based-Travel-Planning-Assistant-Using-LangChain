@@ -310,6 +310,38 @@
     text-decoration: none !important;
 }
 .card-link:hover { text-decoration: underline !important; }
+
+/* Flight card: outbound and return legs */
+.leg + .leg {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.leg-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.6rem;
+}
+.leg .card-headline { margin-top: 0.2rem; }
+.card-meta {
+    font-size: 0.74rem;
+    color: var(--faint);
+    margin-top: 0.55rem;
+}
+.price-insight {
+    font-size: 0.8rem;
+    color: #4ade80;
+    margin-top: 0.55rem;
+}
+.section-note, .sidebar-note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+}
+.sidebar-note { margin: 0 0 1rem; }
 .chip-row.center { justify-content: center; margin-top: 0.6rem; }
 .chip {
     display: inline-block;
