@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # No real API keys: the tests mock SerpApi and use the offline itinerary
+      - name: Run tests
+        env:
+          GROQ_API_KEY: ""
+          SERPAPI_API_KEY: ""
+          SUPABASE_URL: ""
+          SUPABASE_KEY: ""
+        run: python -m pytest tests -q

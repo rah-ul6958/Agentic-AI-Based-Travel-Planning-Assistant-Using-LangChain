@@ -4,7 +4,10 @@ from datetime import datetime
 from langchain_core.tools import tool
 
 from services.live_travel_service import (
+    AIRPORT_CITIES,
+    NEARBY_AIRPORTS,
     LiveDataError,
+    NoResultsError,
     default_travel_date,
     fetch_live_flights,
     live_data_enabled,
@@ -89,6 +92,39 @@ def find_connections(flights: list[dict], source: str, destination: str) -> list
     return sorted(connections, key=lambda f: (f["price"], f["duration_hrs"]))
 
 
+def _airport_note(source: str, destination: str, from_airport: str, to_airport: str) -> str:
+    """Explain the extra road travel when a nearby airport is used."""
+    notes = []
+    for city, code, word in ((source, from_airport, "from"), (destination, to_airport, "to")):
+        code = code.strip().upper()
+        if not code:
+            continue
+        nearby = {c: (name, distance) for name, c, distance in NEARBY_AIRPORTS.get(city.strip().lower(), [])}
+        if code in nearby:
+            name, distance = nearby[code]
+            action = "Departs from" if word == "from" else "Arrives at"
+            notes.append(f"{action} {name} ({code}), {distance} {word} {city.title()}")
+        elif AIRPORT_CITIES.get(code, "").lower() != city.strip().lower():
+            notes.append(f"Uses {code} airport instead of the {city.title()} airport")
+    return "; ".join(notes)
+
+
+def _not_found(source: str, destination: str, message: str, **extra) -> str:
+    """No flights: suggest nearby airports so the agent (or the user) can try them."""
+    nearby = {
+        city: [{"name": name, "code": code, "distance": distance}
+               for name, code, distance in NEARBY_AIRPORTS.get(city.strip().lower(), [])]
+        for city in (source, destination)
+    }
+    return json.dumps({
+        "found": False,
+        **extra,
+        "message": message,
+        "tip": "Try a nearby airport with from_airport / to_airport, or travel by train or road.",
+        "nearby_airports": nearby,
+    }, indent=2, ensure_ascii=False)
+
+
 def _summarize(results: list[dict], **extra) -> str:
     cheapest = min(results, key=lambda f: f["price"])
     fastest = min(results, key=lambda f: f["duration_hrs"])
@@ -105,17 +141,33 @@ def _summarize(results: list[dict], **extra) -> str:
 
 
 @tool
-def search_flights(source: str, destination: str, travel_date: str = "") -> str:
-    """Search flights from source city to destination city on travel_date (YYYY-MM-DD).
+def search_flights(source: str, destination: str, travel_date: str = "", travellers: int = 1,
+                   from_airport: str = "", to_airport: str = "") -> str:
+    """Search one-way flights from source city to destination city on travel_date (YYYY-MM-DD).
+    Call it twice for a round trip (outbound, then the return leg with the cities swapped).
+    from_airport / to_airport are optional IATA codes (for example "IXC") to use a
+    nearby airport instead of the city's own airport.
     Uses real-time Google Flights data when SERPAPI_API_KEY is set, otherwise the
     sample dataset (with 1-stop connections when no direct flight exists).
-    Returns cheapest option, fastest option, and all available flights."""
+    Every price is per person; the budget tool multiplies by travellers.
+    Returns cheapest option, fastest option, and all available flights, or found=false
+    with nearby airport suggestions."""
+    travel_date = travel_date or default_travel_date()
+    trip_info = {"travel_date": travel_date, "travellers": max(int(travellers), 1),
+                 "price_basis": "per person"}
+    note = _airport_note(source, destination, from_airport, to_airport)
     live_error = ""
     if live_data_enabled():
         try:
-            results = fetch_live_flights(source, destination, travel_date or default_travel_date())
+            live = fetch_live_flights(source, destination, travel_date, from_airport, to_airport)
+            results = [{**f, "airport_note": note} if note else f for f in live["flights"]]
             connecting = all(f["stops"] for f in results)
-            return _summarize(results, data_source="live", connecting=connecting)
+            return _summarize(results, data_source="live", connecting=connecting,
+                              fetched_at=live["fetched_at"], from_cache=live["from_cache"],
+                              price_insights=live["price_insights"], **trip_info)
+        except NoResultsError as exc:
+            # Google answered that there are no flights: report it, never show sample flights
+            return _not_found(source, destination, str(exc), data_source="live", **trip_info)
         except LiveDataError as exc:
             live_error = str(exc)
 
@@ -123,30 +175,35 @@ def search_flights(source: str, destination: str, travel_date: str = "") -> str:
         raw_flights = load_json_dataset("flights.json")
         flights = [_normalize_flight(f) for f in raw_flights]
 
+        # Sample data is stored by city, so an airport code is looked up as its city
+        from_city = AIRPORT_CITIES.get(from_airport.strip().upper(), "") if from_airport else source
+        to_city = AIRPORT_CITIES.get(to_airport.strip().upper(), "") if to_airport else destination
+
         results = [
             f for f in flights
-            if f["source"].strip().lower() == source.strip().lower()
-            and f["destination"].strip().lower() == destination.strip().lower()
+            if f["source"].strip().lower() == from_city.strip().lower()
+            and f["destination"].strip().lower() == to_city.strip().lower()
         ]
         connecting = False
-        if not results:
-            results = find_connections(flights, source, destination)[:5]
+        if not results and from_city and to_city:
+            results = find_connections(flights, from_city, to_city)[:5]
             connecting = bool(results)
+
+        # Sample flights have placeholder dates, so show them on the requested day.
+        results = [{**f, "travel_date": travel_date, **({"airport_note": note} if note else {})}
+                   for f in results]
 
         if not results:
             available_routes = sorted({
                 f'{f["source"]} → {f["destination"]}' for f in flights
             })
-            return json.dumps({
-                "found": False,
-                "data_source": "sample",
-                "live_error": live_error,
-                "message": f"No direct or 1-stop flights found from {source} to {destination}.",
-                "tip": "Consider train or road travel, or check available_routes.",
-                "available_routes": available_routes,
-            }, indent=2, ensure_ascii=False)
+            return _not_found(source, destination,
+                              f"No direct or 1-stop flights found from {source} to {destination}.",
+                              data_source="sample", live_error=live_error,
+                              available_routes=available_routes, **trip_info)
 
-        return _summarize(results, data_source="sample", live_error=live_error, connecting=connecting)
+        return _summarize(results, data_source="sample", live_error=live_error,
+                          connecting=connecting, **trip_info)
 
     except Exception as exc:
         return json.dumps({"error": f"Flight search failed: {exc}"})

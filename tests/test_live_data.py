@@ -83,7 +83,7 @@ def test_live_hotels_respect_budget(monkeypatch):
     calls = []
     enable_live(monkeypatch, {"google_hotels": HOTELS_RESPONSE}, calls)
     data = json.loads(search_hotels.invoke(
-        {"city": "Goa", "max_price": 7000, "min_rating": 3, "check_in": "2026-10-05", "nights": 3}))
+        {"city": "Goa", "max_price": 7000, "min_stars": 3, "check_in": "2026-10-05", "nights": 3}))
 
     assert data["data_source"] == "live"
     assert calls[0]["check_out_date"] == "2026-10-08"
@@ -114,9 +114,10 @@ def test_plan_trip_uses_live_prices(monkeypatch):
     monkeypatch.setattr(travel_agent, "llm_available", lambda: False)
     result = plan_trip("Delhi", "Goa", 3, "Medium", start_date="2026-10-05")
 
-    assert result["data_sources"] == {"flights": "live", "hotels": "live"}
+    assert result["data_sources"] == {"flights": "live", "return_flights": "live", "hotels": "live"}
     assert "AI 805" in result["parsed"]["flight"] and "Date 2026-10-05" in result["parsed"]["flight"]
+    assert "AI 805" in result["parsed"]["return_flight"]  # the mock returns the same offers
     assert "Casa Calangute" in result["parsed"]["hotel"]
-    # 4,890 flight + 3 x 3,200 hotel + 3 x 1,500 food
-    assert result["parsed"]["budget"]["TOTAL"] == "Rs.18,990"
+    # 4,890 out + 4,890 return + 2 nights x 3,200 hotel + 3 days x 1,500 food (1 traveller)
+    assert result["parsed"]["budget"]["TOTAL"] == "Rs.20,680"
     assert result["links"]["flight"].startswith("https://www.google.com/travel/flights")

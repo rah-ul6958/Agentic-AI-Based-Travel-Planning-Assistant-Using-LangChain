@@ -49,6 +49,16 @@ def weather_description(code: int) -> str:
 MAX_FORECAST_DAYS = 16  # Open-Meteo forecast horizon
 
 
+def last_forecast_date() -> date:
+    """The furthest day Open-Meteo can forecast (today counts as day 1)."""
+    return date.today() + timedelta(days=MAX_FORECAST_DAYS - 1)
+
+
+def forecast_available(start_date: str = "") -> bool:
+    start = date.fromisoformat(start_date) if start_date else date.today()
+    return start <= last_forecast_date()
+
+
 def fetch_weather(city: str, days: int = 5, start_date: str = "") -> dict:
     city_key = city.strip().lower()
     if city_key not in SUPPORTED_CITY_COORDS:
@@ -59,8 +69,10 @@ def fetch_weather(city: str, days: int = 5, start_date: str = "") -> dict:
     start = date.fromisoformat(start_date) if start_date else date.today()
     start = max(start, date.today())
     end = start + timedelta(days=days - 1)
-    if end > date.today() + timedelta(days=MAX_FORECAST_DAYS - 1):
+    if start > last_forecast_date():
         return {}  # beyond the forecast horizon
+    # If only part of the trip is within range, fetch the days we can forecast.
+    end = min(end, last_forecast_date())
 
     response = requests.get(
         "https://api.open-meteo.com/v1/forecast",
@@ -79,21 +91,14 @@ def fetch_weather(city: str, days: int = 5, start_date: str = "") -> dict:
 
 
 def fallback_weather(city: str, days: int = 3, start_date: str = "") -> dict:
-    forecast = []
-    start = date.fromisoformat(start_date) if start_date else date.today()
-    for index in range(max(1, min(int(days), 7))):
-        travel_date = start + timedelta(days=index)
-        forecast.append(
-            {
-                "date": str(travel_date),
-                "condition": "Partly cloudy",
-                "icon": weather_icon(2),
-                "max_temp_c": 32 - min(index, 4),
-                "min_temp_c": 24,
-                "precipitation_mm": 0.0,
-            }
-        )
-    return {"city": city, "forecast": forecast, "note": "Live weather unavailable - showing typical conditions"}
+    """Used when there is no real forecast. It never invents weather data."""
+    if not forecast_available(start_date):
+        check_from = date.fromisoformat(start_date) - timedelta(days=MAX_FORECAST_DAYS - 1)
+        message = (f"Forecast not available yet. Forecasts cover about {MAX_FORECAST_DAYS} days ahead, "
+                   f"so check again from {check_from.strftime('%d %b %Y')}.")
+    else:
+        message = "Weather forecast is unavailable right now. Please check again later."
+    return {"city": city, "forecast": [], "available": False, "message": message}
 
 
 def normalize_weather_payload(city: str, payload: dict, days: int) -> dict:
