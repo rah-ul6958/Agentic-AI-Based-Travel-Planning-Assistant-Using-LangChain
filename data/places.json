@@ -38,5 +38,17 @@
   {"place_id":"PLC0037","name":"Kapaleeshwarar Temple","city":"Chennai","type":"heritage","rating":4.6,"description":"Magnificent 7th-century Dravidian temple with colourful gopuram dedicated to Lord Shiva"},
   {"place_id":"PLC0038","name":"Marina Beach","city":"Chennai","type":"beach","rating":4.4,"description":"World's second longest urban beach, a beloved gathering place for locals at sunset"},
   {"place_id":"PLC0039","name":"Fort St. George","city":"Chennai","type":"heritage","rating":4.3,"description":"First British fort in India, now a museum housing rare historical artefacts"},
-  {"place_id":"PLC0040","name":"T. Nagar Market","city":"Chennai","type":"market","rating":4.2,"description":"One of India's busiest retail districts famous for silk sarees and gold jewellery"}
+  {"place_id":"PLC0040","name":"T. Nagar Market","city":"Chennai","type":"market","rating":4.2,"description":"One of India's busiest retail districts famous for silk sarees and gold jewellery"},
+  {"place_id":"PLC0041","name":"Fort Kochi","city":"Kerala","type":"heritage","rating":4.6,"description":"Colonial-era seaside quarter with Chinese fishing nets, churches and art cafes"},
+  {"place_id":"PLC0042","name":"Alleppey Backwaters","city":"Kerala","type":"nature","rating":4.8,"description":"Serene network of canals and lagoons best explored on an overnight houseboat"},
+  {"place_id":"PLC0043","name":"Munnar Tea Gardens","city":"Kerala","type":"nature","rating":4.7,"description":"Rolling emerald tea estates in the Western Ghats with misty viewpoints"},
+  {"place_id":"PLC0044","name":"Mattancherry Palace","city":"Kerala","type":"heritage","rating":4.3,"description":"Portuguese-built palace famed for its vivid Hindu temple murals"},
+  {"place_id":"PLC0045","name":"Varkala Cliff","city":"Kerala","type":"beach","rating":4.6,"description":"Dramatic red laterite cliffs overlooking the Arabian Sea with a lively cliff-top walkway"},
+  {"place_id":"PLC0046","name":"Periyar Wildlife Sanctuary","city":"Kerala","type":"wildlife","rating":4.4,"description":"Tiger reserve around Periyar Lake with boat safaris and spice plantations"},
+  {"place_id":"PLC0047","name":"Hadimba Temple","city":"Manali","type":"heritage","rating":4.6,"description":"16th-century wooden pagoda temple set in a towering cedar forest"},
+  {"place_id":"PLC0048","name":"Solang Valley","city":"Manali","type":"adventure","rating":4.7,"description":"Snow-capped valley for paragliding, zorbing, ropeway rides and winter skiing"},
+  {"place_id":"PLC0049","name":"Old Manali","city":"Manali","type":"culture","rating":4.5,"description":"Village lanes packed with cafes, apple orchards and a relaxed backpacker vibe"},
+  {"place_id":"PLC0050","name":"Atal Tunnel","city":"Manali","type":"landmark","rating":4.7,"description":"9 km high-altitude highway tunnel leading to the stark landscapes of Lahaul"},
+  {"place_id":"PLC0051","name":"Vashisht Hot Springs","city":"Manali","type":"experience","rating":4.3,"description":"Natural sulphur hot springs and ancient stone temples above the Beas river"},
+  {"place_id":"PLC0052","name":"Mall Road","city":"Manali","type":"market","rating":4.2,"description":"Bustling promenade for Tibetan handicrafts, woollens and local street food"}
 ]

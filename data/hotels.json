@@ -496,5 +496,126 @@
             "parking",
             "pool"
         ]
+    },
+    {
+        "hotel_id": "HOT0041",
+        "name": "Backwater Retreat",
+        "city": "Kerala",
+        "stars": 4,
+        "price_per_night": 4200,
+        "amenities": [
+            "wifi",
+            "breakfast",
+            "pool",
+            "spa"
+        ]
+    },
+    {
+        "hotel_id": "HOT0042",
+        "name": "Fort Kochi Heritage Inn",
+        "city": "Kerala",
+        "stars": 3,
+        "price_per_night": 2300,
+        "amenities": [
+            "wifi",
+            "breakfast"
+        ]
+    },
+    {
+        "hotel_id": "HOT0043",
+        "name": "Munnar Tea Valley Resort",
+        "city": "Kerala",
+        "stars": 5,
+        "price_per_night": 7800,
+        "amenities": [
+            "wifi",
+            "breakfast",
+            "spa",
+            "parking"
+        ]
+    },
+    {
+        "hotel_id": "HOT0044",
+        "name": "Coconut Lagoon Homestay",
+        "city": "Kerala",
+        "stars": 3,
+        "price_per_night": 1600,
+        "amenities": [
+            "wifi",
+            "breakfast"
+        ]
+    },
+    {
+        "hotel_id": "HOT0045",
+        "name": "Varkala Cliff Hotel",
+        "city": "Kerala",
+        "stars": 4,
+        "price_per_night": 3400,
+        "amenities": [
+            "wifi",
+            "pool",
+            "parking"
+        ]
+    },
+    {
+        "hotel_id": "HOT0046",
+        "name": "Snow Peak Resort",
+        "city": "Manali",
+        "stars": 4,
+        "price_per_night": 3900,
+        "amenities": [
+            "wifi",
+            "breakfast",
+            "heater",
+            "parking"
+        ]
+    },
+    {
+        "hotel_id": "HOT0047",
+        "name": "Old Manali Backpackers",
+        "city": "Manali",
+        "stars": 2,
+        "price_per_night": 1100,
+        "amenities": [
+            "wifi"
+        ]
+    },
+    {
+        "hotel_id": "HOT0048",
+        "name": "Solang Valley Cottages",
+        "city": "Manali",
+        "stars": 3,
+        "price_per_night": 2400,
+        "amenities": [
+            "wifi",
+            "breakfast",
+            "heater"
+        ]
+    },
+    {
+        "hotel_id": "HOT0049",
+        "name": "Himalayan Grand",
+        "city": "Manali",
+        "stars": 5,
+        "price_per_night": 8200,
+        "amenities": [
+            "wifi",
+            "breakfast",
+            "spa",
+            "gym",
+            "parking"
+        ]
+    },
+    {
+        "hotel_id": "HOT0050",
+        "name": "Pine View Lodge",
+        "city": "Manali",
+        "stars": 3,
+        "price_per_night": 1900,
+        "amenities": [
+            "wifi",
+            "heater",
+            "parking"
+        ]
     }
 ]

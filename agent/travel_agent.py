@@ -2,11 +2,13 @@ import json
 import logging
 import os
 import re
+from urllib.parse import quote_plus
 
 from langchain_groq import ChatGroq
 
-from config.settings import BUDGET_PROFILES, load_environment
+from config.settings import BUDGET_PROFILES, groq_model, llm_available, load_environment
 from tools.all_tools import ALL_TOOLS
+from utils.formatting import format_duration, format_rupees
 
 load_environment()
 logger = logging.getLogger(__name__)
@@ -98,50 +100,43 @@ DESTINATION_FALLBACKS = {
             "Bangalore weather is mild year-round, making it easy to walk",
         ],
     },
+    "chennai": {
+        "places": ["Marina Beach", "Kapaleeshwarar Temple", "Fort St. George", "T. Nagar Market", "San Thome Basilica", "Mylapore"],
+        "themes": ["Coastal Chennai", "Temple Trail", "Markets & Food"],
+        "tips": [
+            "Visit temples early and dress modestly with shoulders covered",
+            "Try a filter coffee and a full South Indian thali",
+            "Avoid Marina Beach swims; currents are strong",
+        ],
+    },
 }
-
-FALLBACK_FLIGHTS = {
-    ("delhi", "goa"): "IndiGo FL0026 | Rs.5,200 | Departs 06:00 arrives 08:30 | Duration 2h 30m",
-    ("delhi", "jaipur"): "SpiceJet FL0031 | Rs.1,600 | Departs 13:00 arrives 14:05 | Duration 1h 5m",
-    ("delhi", "mumbai"): "IndiGo FL0033 | Rs.3,800 | Departs 07:00 arrives 09:00 | Duration 2h 0m",
-    ("delhi", "bangalore"): "Air India FL0036 | Rs.4,500 | Departs 06:45 arrives 09:15 | Duration 2h 30m",
-    ("delhi", "hyderabad"): "IndiGo FL0038 | Rs.4,200 | Departs 08:30 arrives 11:00 | Duration 2h 30m",
-    ("delhi", "kolkata"): "SpiceJet FL0039 | Rs.3,600 | Departs 07:00 arrives 09:30 | Duration 2h 30m",
-    ("delhi", "chennai"): "Air India FL0040 | Rs.4,800 | Departs 09:00 arrives 11:30 | Duration 2h 30m",
-    ("mumbai", "goa"): "IndiGo FL0004 | Rs.2,100 | Departs 14:38 arrives 15:43 | Duration 1h 5m",
-    ("bangalore", "goa"): "SpiceJet FL0002 | Rs.3,200 | Departs 07:15 arrives 08:20 | Duration 1h 5m",
-    ("bangalore", "mumbai"): "Vistara FL0006 | Rs.3,500 | Departs 10:00 arrives 11:30 | Duration 1h 30m",
-}
-
 
 # ── LLM prompt ────────────────────────────────────────────────────────────────
 
 ITINERARY_PROMPT = """You are an expert Indian travel planner creating a complete, personalised itinerary.
 
-Use the tool results provided below as your primary data source. Do NOT invent flight numbers, prices, or hotel names — use what is in the tool data.
+Use the tool results provided below as your only data source. Do NOT invent flight numbers, prices, or hotel names — use what is in the tool data.
 
-Return your itinerary using EXACTLY this format (keep the header names verbatim):
+Return your itinerary using EXACTLY this format (plain text, no markdown, no bold, keep the header names verbatim, one section per line):
 
 TRIP_SUMMARY: {destination} for {days} days - {budget_level} budget
-FLIGHT_SELECTED: [Airline + flight_id] | Rs.[price] | Departs [HH:MM] arrives [HH:MM] | Duration [Xh Ym]
-HOTEL_SELECTED: [Hotel name] | [stars] star | Rs.[price_per_night]/night | [type] | Amenities: [amenities list]
-WEATHER_FORECAST: Day1:[date] [condition] [max]C/[min]C | Day2:[date] [condition] [max]C/[min]C | ...
+FLIGHT_SELECTED: {flight_line}
+HOTEL_SELECTED: {hotel_line}
+WEATHER_FORECAST: Day1:[YYYY-MM-DD] [condition] [max]C/[min]C | Day2:[YYYY-MM-DD] [condition] [max]C/[min]C | ...
 DAY_ITINERARY:
 Day 1 - [Theme]: Morning: [specific place from data + what to do there]. Afternoon: [specific place + activity]. Evening: [activity or place].
 Day 2 - [Theme]: Morning: [place + activity]. Afternoon: [place + activity]. Evening: [activity].
 [Continue for all {days} days using real place names from the places data]
-BUDGET_BREAKDOWN: Flight:Rs.[X] | Hotel:Rs.[X×nights nights] | Food&Travel:Rs.[X] | TOTAL:Rs.[X]
+BUDGET_BREAKDOWN: {budget_line}
 TRAVEL_TIPS: [tip 1]; [tip 2]; [tip 3]; [tip 4]
 
 Rules:
-- FLIGHT: Pick the cheapest_flight from the flights tool result. If no direct route, say "Best connecting option via major hub"
-- HOTEL: Pick the recommended hotel from the hotels tool result. Use its exact name, stars, price, amenities
-- WEATHER: Use real forecast dates and temperatures from the weather tool result
-- PLACES: Use actual place names from the places tool result for the day itinerary
-- BUDGET: Calculate accurately: flight_price + (hotel_price × nights) + (daily_food × nights)
-- Low budget daily food = Rs.800, Medium = Rs.1,500, High = Rs.3,000
+- FLIGHT_SELECTED, HOTEL_SELECTED and BUDGET_BREAKDOWN are pre-computed from the tools: copy them exactly as shown above.
+- WEATHER: Use the real forecast dates and temperatures from the weather tool result, one entry per day.
+- PLACES: Use actual place names from the places tool result; spread them across the days and avoid repeats.
+- Day 1 should account for arrival; the last day should leave time for departure.
 - Write day themes that match the destination character (beach, heritage, mountains etc.)
-- Be specific and practical, not generic
+- Be specific and practical, not generic. Tips must be specific to {destination}.
 
 Source city: {source}
 Destination: {destination}
@@ -159,6 +154,9 @@ class TravelPlanningError(RuntimeError):
     pass
 
 
+TOOL_MAP = {t.name: t for t in ALL_TOOLS}
+
+
 def _invoke_tool(name: str, payload: dict, thought_container=None) -> str:
     logger.info("Calling tool: %s", name)
     if thought_container:
@@ -166,154 +164,159 @@ def _invoke_tool(name: str, payload: dict, thought_container=None) -> str:
             thought_container.markdown(f"🔍 Running `{name}`...")
         except Exception:
             pass
-    tool_map = {t.name: t for t in ALL_TOOLS}
-    return tool_map[name].invoke(payload)
+    return TOOL_MAP[name].invoke(payload)
+
+
+def _load(raw: str) -> dict:
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _selected_flight(flights_raw: str) -> dict:
+    data = _load(flights_raw)
+    return data.get("cheapest_flight") or data.get("fastest_flight") or {}
+
+
+def _selected_hotel(hotels_raw: str) -> dict:
+    data = _load(hotels_raw)
+    return data.get("recommended") or data.get("cheapest") or {}
 
 
 def _extract_costs(flights_raw: str, hotels_raw: str) -> tuple[float, float]:
-    flight_cost = 0.0
-    hotel_cost = 0.0
-    try:
-        data = json.loads(flights_raw)
-        f = data.get("cheapest_flight") or data.get("fastest_flight") or {}
-        flight_cost = float(f.get("price", 0) or 0)
-    except Exception:
-        logger.warning("Could not parse flight cost")
-    try:
-        data = json.loads(hotels_raw)
-        h = data.get("recommended") or data.get("cheapest") or {}
-        hotel_cost = float(h.get("price_per_night", 0) or 0)
-    except Exception:
-        logger.warning("Could not parse hotel cost")
+    flight_cost = float(_selected_flight(flights_raw).get("price", 0) or 0)
+    hotel_cost = float(_selected_hotel(hotels_raw).get("price_per_night", 0) or 0)
     return flight_cost, hotel_cost
 
 
-def _build_fallback(source, destination, days, budget_level, tool_results):
-    """Deterministic fallback itinerary when LLM call fails."""
-    dest_key = destination.lower()
-    fb = DESTINATION_FALLBACKS.get(dest_key, {})
-    profile = BUDGET_PROFILES.get(budget_level, BUDGET_PROFILES["Medium"])
+def describe_flight(flight: dict, source: str = "", destination: str = "") -> str:
+    if not flight:
+        return (f"No flights from {source} to {destination} in our dataset | "
+                "Consider train or road travel")
+    parts = [
+        f"{flight.get('airline', 'Airline')} {flight.get('flight_id', '')}".strip(),
+        format_rupees(flight.get("price", 0)),
+        f"Departs {flight.get('departure_display', 'TBD')} arrives {flight.get('arrival_display', 'TBD')}",
+        f"Duration {format_duration(flight.get('duration_hrs', 0))}",
+        (f"{flight['stops']} stop{'s' if flight['stops'] > 1 else ''} via {flight.get('via') or 'hub'}"
+         if flight.get("stops") else "Non-stop"),
+    ]
+    if flight.get("travel_date"):
+        parts.insert(2, f"Date {flight['travel_date']}")
+    return " | ".join(parts)
 
-    flight = FALLBACK_FLIGHTS.get(
-        (source.lower(), dest_key),
-        f"Best available flight from {source} to {destination}"
-    )
-    hotel = "Recommended central hotel | 4 star | Rs.3,500/night | Hotel | Amenities: wifi, breakfast"
-    weather_str = " | ".join(
-        f"Day{i+1}: Partly cloudy {32-i}C/24C" for i in range(days)
-    )
-    places = fb.get("places", [f"{destination} city centre", "local market", "heritage site",
-                                "scenic viewpoint", "food street", "cultural landmark"])
+
+def describe_hotel(hotel: dict, destination: str = "") -> str:
+    if not hotel:
+        return f"No hotels in our dataset for {destination} | Book a well-reviewed central stay"
+    amenities = ", ".join(hotel.get("amenities", [])) or "wifi"
+    stars = hotel.get("stars", hotel.get("rating", 3))
+    guest = f" | Guest rating {hotel['guest_rating']}/5" if hotel.get("guest_rating") else ""
+    return (f"{hotel.get('name', 'Hotel')} | {float(stars):g} star{guest} | "
+            f"{format_rupees(hotel.get('price_per_night', 0))}/night | "
+            f"{hotel.get('type', 'Hotel')} | Amenities: {amenities}")
+
+
+def describe_budget(budget_raw: str) -> str:
+    formatted = _load(budget_raw).get("formatted", {})
+    if not formatted:
+        return ""
+    return (f"Flight:{formatted.get('flight', '')} | Hotel:{formatted.get('hotel', '')} | "
+            f"Food&Travel:{formatted.get('food_and_travel', '')} | TOTAL:{formatted.get('total', '')}")
+
+
+def _build_fallback(source, destination, days, budget_level, tool_results):
+    """Deterministic itinerary used when the LLM is unavailable."""
+    fb = DESTINATION_FALLBACKS.get(destination.lower(), {})
+
+    places = [p.get("name") for p in _load(tool_results.get("places", "")).get("top_places", []) if p.get("name")]
+    places = places or fb.get("places") or [
+        f"{destination} city centre", "the local market", "a heritage site",
+        "a scenic viewpoint", "a popular food street", "a cultural landmark",
+    ]
     themes = fb.get("themes", ["Arrival & Orientation", "Local Highlights", "Culture & Food"])
     tips = fb.get("tips", ["Keep digital copies of all bookings",
                            "Start sightseeing early to avoid crowds",
                            "Confirm local transport fares before boarding"])
 
-    # Override with real tool data where available
-    try:
-        wd = json.loads(tool_results.get("weather", "{}")).get("forecast", [])
-        if wd:
-            weather_str = " | ".join(
-                f"Day{i+1}:{w['date']} {w['condition']} {w['max_temp_c']}C/{w['min_temp_c']}C"
-                for i, w in enumerate(wd[:days])
-            )
-    except Exception:
-        pass
-
-    try:
-        fd = json.loads(tool_results.get("flights", "{}"))
-        cf = fd.get("cheapest_flight") or fd.get("fastest_flight")
-        if cf:
-            flight = (f"{cf.get('airline','')} {cf.get('flight_id','')} | "
-                      f"Rs.{float(cf.get('price',0)):,.0f} | "
-                      f"Departs {cf.get('departure_display','TBD')} arrives {cf.get('arrival_display','TBD')} | "
-                      f"Duration {cf.get('duration_hrs','?')}h")
-    except Exception:
-        pass
-
-    try:
-        hd = json.loads(tool_results.get("hotels", "{}"))
-        rh = hd.get("recommended") or hd.get("cheapest")
-        if rh:
-            amenities = ", ".join(rh.get("amenities", [])) or "wifi, breakfast"
-            hotel = (f"{rh.get('name','')} | {rh.get('stars', rh.get('rating', 4))} star | "
-                     f"Rs.{float(rh.get('price_per_night',0)):,.0f}/night | "
-                     f"{rh.get('type','Hotel')} | Amenities: {amenities}")
-    except Exception:
-        pass
-
-    try:
-        pd = json.loads(tool_results.get("places", "{}")).get("top_places", [])
-        if pd:
-            places = [p.get("name", "") for p in pd if p.get("name")] or places
-    except Exception:
-        pass
-
-    # Budget
-    fc_match = re.search(r"Rs\.([0-9,]+)", flight)
-    hc_match = re.search(r"Rs\.([0-9,]+)/night", hotel)
-    fc = float(fc_match.group(1).replace(",", "")) if fc_match else 5000
-    hc = float(hc_match.group(1).replace(",", "")) if hc_match else 3500
-    food = profile["daily_food_travel"] * days
-    total = fc + hc * days + food
-    budget_str = (f"Flight:Rs.{fc:,.0f} | Hotel:Rs.{hc*days:,.0f}({days}nights) | "
-                  f"Food&Travel:Rs.{food:,.0f} | TOTAL:Rs.{total:,.0f}")
-
-    # Try real budget tool data
-    try:
-        bd = json.loads(tool_results.get("budget", "{}")).get("formatted", {})
-        if bd and not str(bd.get("flight", "")).endswith("0"):
-            budget_str = (f"Flight:{bd.get('flight','')} | Hotel:{bd.get('hotel','')} | "
-                          f"Food&Travel:{bd.get('food_and_travel','')} | TOTAL:{bd.get('total','')}")
-    except Exception:
-        pass
+    forecast = _load(tool_results.get("weather", "")).get("forecast", [])
+    weather_str = " | ".join(
+        f"Day{i + 1}:{w['date']} {w['condition']} {w['max_temp_c']:.0f}C/{w['min_temp_c']:.0f}C"
+        for i, w in enumerate(forecast[:days])
+    )
 
     day_lines = []
-    for i in range(1, days + 1):
-        p1 = places[(i - 1) % len(places)]
-        p2 = places[i % len(places)]
-        p3 = places[(i + 1) % len(places)]
-        theme = themes[(i - 1) % len(themes)]
+    for i in range(days):
+        p1, p2, p3 = (places[(i * 2 + k) % len(places)] for k in range(3))
+        theme = themes[i % len(themes)]
+        morning = (f"Arrive in {destination.title()}, check in and freshen up" if i == 0
+                   else f"Visit {p1} and explore the area")
+        evening = ("Pick up souvenirs, pack up and head out for your departure"
+                   if i == days - 1 and days > 1 else f"Wind down around {p3} for dinner or a walk")
         day_lines.append(
-            f"Day {i} - {theme}: Morning: Visit {p1} and explore the area. "
-            f"Afternoon: Head to {p2} with time for local food. "
-            f"Evening: Wind down at {p3} for dinner or a walk."
+            f"Day {i + 1} - {theme}: Morning: {morning}. "
+            f"Afternoon: Head to {p2} with time for local food. Evening: {evening}."
         )
 
     return "\n".join([
         f"TRIP_SUMMARY: {destination.title()} for {days} days - {budget_level} budget",
-        f"FLIGHT_SELECTED: {flight}",
-        f"HOTEL_SELECTED: {hotel}",
+        f"FLIGHT_SELECTED: {describe_flight(_selected_flight(tool_results.get('flights', '')), source, destination)}",
+        f"HOTEL_SELECTED: {describe_hotel(_selected_hotel(tool_results.get('hotels', '')), destination)}",
         f"WEATHER_FORECAST: {weather_str}",
         "DAY_ITINERARY:",
         "\n".join(day_lines),
-        f"BUDGET_BREAKDOWN: {budget_str}",
+        f"BUDGET_BREAKDOWN: {describe_budget(tool_results.get('budget', ''))}",
         f"TRAVEL_TIPS: {'; '.join(tips)}",
     ])
 
 
 # ── Main planning function ────────────────────────────────────────────────────
 
+def _data_sources(flights_raw: str, hotels_raw: str) -> tuple[dict, list[str]]:
+    sources, errors = {}, []
+    for name, raw in (("flights", flights_raw), ("hotels", hotels_raw)):
+        data = _load(raw)
+        sources[name] = data.get("data_source", "sample")
+        if data.get("live_error"):
+            errors.append(f"{name}: {data['live_error']}")
+    return sources, errors
+
+
+def _booking_links(source: str, destination: str, start_date: str, hotels_raw: str) -> dict:
+    hotel = _selected_hotel(hotels_raw)
+    flight_query = f"Flights from {source} to {destination}" + (f" on {start_date}" if start_date else "")
+    hotel_query = f"{hotel.get('name', 'hotels')} {destination}"
+    return {
+        "flight": "https://www.google.com/travel/flights?q=" + quote_plus(flight_query),
+        "hotel": hotel.get("link") or "https://www.google.com/travel/search?q=" + quote_plus(hotel_query),
+    }
+
+
 def plan_trip(source: str, destination: str, days: int,
-              budget_level: str, thought_container=None) -> dict:
+              budget_level: str, thought_container=None, start_date: str = "") -> dict:
     """Run all tools then ask LLM to compose final itinerary. Returns structured result."""
     try:
-        source = source.strip()
-        destination = destination.strip()
+        source = source.strip().title()
+        destination = destination.strip().title()
         days = max(1, min(int(days), 7))
         profile = BUDGET_PROFILES.get(budget_level, BUDGET_PROFILES["Medium"])
 
         # ── Run all 5 tools ──
         flights = _invoke_tool("search_flights",
-                               {"source": source, "destination": destination},
+                               {"source": source, "destination": destination,
+                                "travel_date": start_date},
                                thought_container)
         hotels = _invoke_tool("search_hotels",
                               {"city": destination,
                                "max_price": profile["max_price"],
-                               "min_rating": profile["min_rating"]},
+                               "min_rating": profile["min_rating"],
+                               "check_in": start_date,
+                               "nights": days},
                               thought_container)
         weather = _invoke_tool("get_weather",
-                               {"city": destination, "days": days},
+                               {"city": destination, "days": days, "start_date": start_date},
                                thought_container)
         places = _invoke_tool("search_places",
                               {"city": destination},
@@ -335,35 +338,63 @@ def plan_trip(source: str, destination: str, days: int,
         }
 
         # ── Ask LLM to compose itinerary ──
-        prompt = ITINERARY_PROMPT.format(
-            source=source,
-            destination=destination,
-            days=days,
-            budget_level=budget_level,
-            tool_results=json.dumps(tool_results, indent=2),
-        )
-
+        mode, notice = "ai", ""
         try:
-            api_key = os.getenv("GROQ_API_KEY")
-            if not api_key:
+            if not llm_available():
                 raise TravelPlanningError("GROQ_API_KEY not set")
 
+            prompt = ITINERARY_PROMPT.format(
+                source=source,
+                destination=destination,
+                days=days,
+                budget_level=budget_level,
+                flight_line=describe_flight(_selected_flight(flights), source, destination),
+                hotel_line=describe_hotel(_selected_hotel(hotels), destination),
+                budget_line=describe_budget(budget),
+                tool_results=json.dumps(
+                    {k: _load(v) for k, v in tool_results.items() if k != "budget"},
+                    indent=1, ensure_ascii=False,
+                ),
+            )
+            model = groq_model()
             llm = ChatGroq(
-                model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                model=model,
                 temperature=0.15,
-                api_key=api_key,
+                api_key=os.getenv("GROQ_API_KEY"),
                 max_retries=2,
-                timeout=45,          # raised from 8s — LLM needs time for long output
-                max_tokens=2048,
+                timeout=60,
+                max_tokens=4096,
+                # gpt-oss models reason before answering; keep it short so output isn't truncated
+                **({"reasoning_effort": "low"} if "gpt-oss" in model else {}),
             )
             raw = llm.invoke(prompt).content
+            parsed = parse_itinerary(raw)
+            if not parsed["days"]:
+                raise TravelPlanningError("LLM response could not be parsed")
 
         except Exception as exc:
             logger.warning("LLM call failed (%s); using deterministic fallback", exc)
+            mode = "offline"
+            notice = ("No GROQ_API_KEY configured — itinerary built directly from the travel data."
+                      if "not set" in str(exc)
+                      else f"AI planner unavailable ({type(exc).__name__}) — showing a data-driven itinerary instead.")
             raw = _build_fallback(source, destination, days, budget_level, tool_results)
+            parsed = parse_itinerary(raw)
 
-        parsed = parse_itinerary(raw)
-        return {"success": True, "raw": raw, "parsed": parsed}
+        # Budget numbers always come from the deterministic budget tool.
+        tool_budget = parse_itinerary(f"BUDGET_BREAKDOWN: {describe_budget(budget)}")["budget"]
+        if tool_budget:
+            parsed["budget"] = tool_budget
+
+        data_sources, live_errors = _data_sources(flights, hotels)
+        if live_errors:
+            notice = " ".join(filter(None, [
+                notice, "Live prices unavailable (" + "; ".join(live_errors) + ") — using sample data.",
+            ]))
+
+        return {"success": True, "raw": raw, "parsed": parsed, "mode": mode, "notice": notice,
+                "data_sources": data_sources, "start_date": start_date,
+                "links": _booking_links(source, destination, start_date, hotels)}
 
     except Exception as exc:
         logger.exception("Trip planning failed")
@@ -372,6 +403,26 @@ def plan_trip(source: str, destination: str, days: int,
 
 # ── Parser ────────────────────────────────────────────────────────────────────
 
+SECTION_RE = re.compile(
+    r"^(TRIP_SUMMARY|FLIGHT_SELECTED|HOTEL_SELECTED|WEATHER_FORECAST|"
+    r"DAY_ITINERARY|BUDGET_BREAKDOWN|TRAVEL_TIPS)\s*:\s*(.*)$",
+    re.IGNORECASE,
+)
+DAY_RE = re.compile(r"^day\s*\d+", re.IGNORECASE)
+
+
+def _split_budget(text: str, budget: dict) -> None:
+    for item in text.split("|"):
+        if ":" in item:
+            key, value = item.split(":", 1)
+            if key.strip() and value.strip():
+                budget[key.strip()] = value.strip()
+
+
+def _split_tips(text: str) -> list[str]:
+    return [t.strip(" .") for t in re.split(r";|(?<=\.)\s+(?=[A-Z])", text) if t.strip(" .")]
+
+
 def parse_itinerary(text: str) -> dict:
     """Parse structured agent output into a dict for the UI."""
     result = {
@@ -379,53 +430,44 @@ def parse_itinerary(text: str) -> dict:
         "weather": [], "days": [], "budget": {}, "tips": [],
     }
 
-    # Strip LLM preamble like "Here is your itinerary:" or "Final Answer:"
-    cleaned = re.sub(r"(?i)(here\s+is\s+.*?itinerary[:\s]*|final answer:\s*)", "", text or "").strip()
-    lines = cleaned.splitlines()
-    current_section = None
-    day_lines = []
-
-    for raw_line in lines:
-        line = raw_line.strip().lstrip("- *#")
+    section = None
+    for raw_line in (text or "").splitlines():
+        line = raw_line.replace("**", "").replace("__", "").strip()
+        line = re.sub(r"^[-*#•>\s]+", "", line).strip()
         if not line:
             continue
 
-        if line.upper().startswith("TRIP_SUMMARY:"):
-            result["summary"] = line.split(":", 1)[1].strip()
-            current_section = None
-        elif line.upper().startswith("FLIGHT_SELECTED:"):
-            result["flight"] = line.split(":", 1)[1].strip()
-            current_section = None
-        elif line.upper().startswith("HOTEL_SELECTED:"):
-            result["hotel"] = line.split(":", 1)[1].strip()
-            current_section = None
-        elif line.upper().startswith("WEATHER_FORECAST:"):
-            raw_weather = line.split(":", 1)[1].strip()
-            result["weather"].extend(
-                item.strip() for item in raw_weather.split("|") if item.strip()
-            )
-            current_section = None
-        elif line.upper().startswith("DAY_ITINERARY:"):
-            current_section = "days"
-        elif line.upper().startswith("BUDGET_BREAKDOWN:"):
-            current_section = "budget"
-            raw_budget = line.split(":", 1)[1].strip()
-            for item in raw_budget.split("|"):
-                if ":" in item:
-                    k, v = item.split(":", 1)
-                    result["budget"][k.strip()] = v.strip()
-        elif line.upper().startswith("TRAVEL_TIPS:"):
-            current_section = "tips"
-            raw_tips = line.split(":", 1)[1].strip()
-            if raw_tips:
-                result["tips"].extend(
-                    t.strip(" .") for t in re.split(r";|\n|(?<=\.)(?=\s[A-Z])", raw_tips) if t.strip()
-                )
-        elif current_section == "days" and re.match(r"^day\s*\d+", line, re.IGNORECASE):
-            day_lines.append(line)
-        elif current_section == "tips" and line:
-            result["tips"].append(line)
+        header = SECTION_RE.match(line)
+        if header:
+            section = header.group(1).upper()
+            value = header.group(2).strip()
+            if section == "TRIP_SUMMARY":
+                result["summary"] = value
+            elif section == "FLIGHT_SELECTED":
+                result["flight"] = value
+            elif section == "HOTEL_SELECTED":
+                result["hotel"] = value
+            elif section == "WEATHER_FORECAST":
+                result["weather"].extend(i.strip() for i in value.split("|") if i.strip())
+            elif section == "BUDGET_BREAKDOWN":
+                _split_budget(value, result["budget"])
+            elif section == "TRAVEL_TIPS":
+                result["tips"].extend(_split_tips(value))
+            elif section == "DAY_ITINERARY" and DAY_RE.match(value):
+                result["days"].append(value)
+            continue
 
-    result["days"] = day_lines if day_lines else [cleaned]
-    result["tips"] = [t for t in result["tips"] if len(t) > 8][:6]
+        if section == "DAY_ITINERARY":
+            if DAY_RE.match(line):
+                result["days"].append(line)
+            elif result["days"]:
+                result["days"][-1] += " " + line
+        elif section == "WEATHER_FORECAST":
+            result["weather"].extend(i.strip() for i in line.split("|") if i.strip())
+        elif section == "BUDGET_BREAKDOWN":
+            _split_budget(line, result["budget"])
+        elif section == "TRAVEL_TIPS":
+            result["tips"].extend(_split_tips(re.sub(r"^\d+[.)]\s*", "", line)))
+
+    result["tips"] = [t[0].upper() + t[1:] for t in result["tips"] if len(t) > 8][:6]
     return result

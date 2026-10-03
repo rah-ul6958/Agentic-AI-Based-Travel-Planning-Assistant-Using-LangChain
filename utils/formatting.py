@@ -3,7 +3,12 @@ from datetime import datetime
 
 
 def escape_html(value: object) -> str:
-    return html.escape(str(value), quote=True)
+    """Escape text for st.markdown(unsafe_allow_html=True).
+
+    Also neutralises '$' so Streamlit does not treat it as LaTeX math."""
+    if value is None:
+        return ""
+    return html.escape(str(value), quote=True).replace("$", "&#36;")
 
 
 def format_rupees(value: float | int | str) -> str:
@@ -11,6 +16,15 @@ def format_rupees(value: float | int | str) -> str:
         return f"Rs.{float(value):,.0f}"
     except (TypeError, ValueError):
         return str(value)
+
+
+def format_duration(hours: float | int | str) -> str:
+    try:
+        total_minutes = round(float(hours) * 60)
+    except (TypeError, ValueError):
+        return str(hours)
+    h, m = divmod(total_minutes, 60)
+    return f"{h}h {m}m" if m else f"{h}h"
 
 
 def parse_iso_duration_hours(start: str, end: str) -> float:
@@ -26,5 +40,12 @@ def parse_iso_duration_hours(start: str, end: str) -> float:
 def format_time(value: str) -> str:
     try:
         return datetime.fromisoformat(value).strftime("%H:%M")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_short_date(value: str) -> str:
+    try:
+        return datetime.fromisoformat(value).strftime("%a, %d %b")
     except (TypeError, ValueError):
         return str(value)

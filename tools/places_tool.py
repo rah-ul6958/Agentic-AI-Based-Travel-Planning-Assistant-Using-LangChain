@@ -1,6 +1,6 @@
 import json
 
-from langchain.tools import tool
+from langchain_core.tools import tool
 
 from tools.data_access import load_json_dataset
 
@@ -21,7 +21,7 @@ def search_places(city: str, place_type: str = "all") -> str:
                 "found": False,
                 "message": f"No places found in {city}.",
                 "available_cities": available_cities,
-            }, indent=2)
+            }, indent=2, ensure_ascii=False)
 
         if place_type.lower() != "all":
             filtered = [p for p in results if p.get("type", "").lower() == place_type.lower()]
@@ -35,7 +35,7 @@ def search_places(city: str, place_type: str = "all") -> str:
             "city": city,
             "total_found": len(results),
             "top_places": results[:8],
-        }, indent=2)
+        }, indent=2, ensure_ascii=False)
 
     except Exception as exc:
         return json.dumps({"error": f"Places search failed: {exc}"})

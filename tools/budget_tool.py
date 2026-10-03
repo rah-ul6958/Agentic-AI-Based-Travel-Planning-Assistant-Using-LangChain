@@ -1,6 +1,6 @@
 import json
 
-from langchain.tools import tool
+from langchain_core.tools import tool
 
 from utils.formatting import format_rupees
 
